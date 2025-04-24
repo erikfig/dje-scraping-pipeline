@@ -3,6 +3,7 @@ import json
 from dotenv import load_dotenv
 import os
 import time
+import hashlib
 
 load_dotenv()
 
@@ -44,6 +45,7 @@ def send_to_gemini(full_text, data_list, max_retries=5):
             data_json["conteudo_publicacao"] = full_text
             data_json["status"] = "nova"
             data_json["reu"] = "Instituto Nacional do Seguro Social - INSS"
+            data_json["hash"] = hashlib.md5(full_text.encode()).hexdigest()
             data_list.append(data_json)
             return
         elif gemini_response.status_code == 429:

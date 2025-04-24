@@ -1,10 +1,11 @@
 from utils.fetch_data import fetch_data
 from utils.process_pdf import process_pdf
 from utils.gemini_api import send_to_gemini
-from utils.database import save_data
+from utils.database import save_data, create_tables
 from tqdm import tqdm
 
 def main():
+    create_tables()  # Garante que as tabelas existem antes de iniciar o processamento
     unique_urls = fetch_data()
     data_list = []
 

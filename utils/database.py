@@ -25,8 +25,49 @@ def get_connection():
         print(f"Erro ao conectar ao banco de dados: {e}")
         raise
 
+def create_tables():
+    create_publications_table = """
+    CREATE TABLE IF NOT EXISTS publications (
+        id SERIAL PRIMARY KEY,
+        numero_processo TEXT,
+        data_disponibilizacao DATE,
+        autores TEXT,
+        advogados TEXT,
+        valor_principal NUMERIC,
+        juros_moratorios NUMERIC,
+        honorarios_adv NUMERIC,
+        reu TEXT,
+        status TEXT,
+        conteudo_publicacao TEXT
+    );
+    """
+    create_hashes_table = """
+    CREATE TABLE IF NOT EXISTS hashes (
+        id SERIAL PRIMARY KEY,
+        hash TEXT UNIQUE
+    );
+    """
+    try:
+        connection = get_connection()
+        with connection.cursor() as cursor:
+            cursor.execute(create_publications_table)
+            cursor.execute(create_hashes_table)
+            connection.commit()
+    except Exception as e:
+        print(f"Erro ao criar tabelas: {e}")
+    finally:
+        if connection:
+            connection.close()
+
 def save_data(data):
-    query = """
+    hash_value = data.get("hash")
+    if not hash_value:
+        print("Hash não encontrado nos dados.")
+        return
+
+    check_hash_query = "SELECT id FROM hashes WHERE hash = %s"
+    insert_hash_query = "INSERT INTO hashes (hash) VALUES (%s)"
+    insert_publication_query = """
     INSERT INTO publications (
         numero_processo,
         data_disponibilizacao,
@@ -54,7 +95,13 @@ def save_data(data):
     try:
         connection = get_connection()
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query, data)
+            cursor.execute(check_hash_query, (hash_value,))
+            if cursor.fetchone():
+                print("Hash já existe. Dados duplicados não serão salvos.")
+                return
+
+            cursor.execute(insert_hash_query, (hash_value,))
+            cursor.execute(insert_publication_query, data)
             connection.commit()
     except Exception as e:
         print(f"Erro ao salvar os dados no banco de dados: {e}")
