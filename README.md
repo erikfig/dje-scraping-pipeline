@@ -1,6 +1,6 @@
 # DJE Scraping Pipeline
 
-Este projeto realiza o scraping de publicações do Diário de Justiça Eletrônico (DJE), processa os PDFs, extrai informações relevantes utilizando a API Gemini e armazena os dados em um banco de dados PostgreSQL.
+Este projeto realiza o scraping de publicações do Diário de Justiça Eletrônico (DJE), processa os PDFs, extrai informações relevantes utilizando a API Gemini e armazena os dados em um banco de dados PostgreSQL. Além disso, os dados salvos com sucesso são enviados para uma fila RabbitMQ para processamento posterior.
 
 ## Configuração do Ambiente
 
@@ -10,25 +10,33 @@ Este projeto realiza o scraping de publicações do Diário de Justiça Eletrôn
    CREATE DATABASE your_database;
    ```
 
-2. **Crie a tabela necessária**:
-   Após criar o banco de dados, execute o seguinte comando para criar a tabela:
+2. **Crie as tabelas necessárias**:
+   Após criar o banco de dados, execute os seguintes comandos para criar as tabelas:
    ```sql
-   CREATE TABLE publicacoes (
+   CREATE TABLE publications (
        id SERIAL PRIMARY KEY,
-       numero_processo VARCHAR(255),
+       numero_processo TEXT,
        data_disponibilizacao DATE,
        autores TEXT,
        advogados TEXT,
-       valor_principal NUMERIC(15, 2),
-       juros_moratorios NUMERIC(15, 2),
-       honorarios_adv NUMERIC(15, 2),
+       valor_principal NUMERIC,
+       juros_moratorios NUMERIC,
+       honorarios_adv NUMERIC,
        reu TEXT,
-       status VARCHAR(50),
+       status TEXT,
        conteudo_publicacao TEXT
+   );
+
+   CREATE TABLE hashes (
+       id SERIAL PRIMARY KEY,
+       hash TEXT UNIQUE
    );
    ```
 
-3. **Configure o arquivo `.env`**:
+3. **Configure o RabbitMQ**:
+   Certifique-se de que o RabbitMQ está instalado e em execução. Crie uma fila chamada `publications_queue` (ou o nome configurado no arquivo `.env`).
+
+4. **Configure o arquivo `.env`**:
    Crie um arquivo `.env` na raiz do projeto com base no arquivo `.env.example`:
    ```plaintext
    GEMINI_API_KEY=your_gemini_api_key
@@ -37,15 +45,17 @@ Este projeto realiza o scraping de publicações do Diário de Justiça Eletrôn
    POSTGRES_PASSWORD=your_password
    POSTGRES_USER=your_user
    POSTGRES_DBNAME=your_database
+   RABBITMQ_HOST=localhost
+   RABBITMQ_QUEUE=publications_queue
    ```
 
-4. **Instale as dependências**:
+5. **Instale as dependências**:
    Certifique-se de que você está em um ambiente virtual e execute:
    ```bash
    pip install -r requirements.txt
    ```
 
-5. **Execute o script principal**:
+6. **Execute o script principal**:
    Inicie o processamento executando:
    ```bash
    python main.py
@@ -57,10 +67,15 @@ Este projeto realiza o scraping de publicações do Diário de Justiça Eletrôn
 - **utils/**: Contém os módulos auxiliares:
   - `fetch_data.py`: Coleta URLs de publicações.
   - `process_pdf.py`: Processa PDFs e extrai texto.
-  - `gemini_api.py`: Interage com a API Gemini para extração de dados.
-  - `database.py`: Gerencia a conexão e operações no banco de dados.
+  - `gemini_api.py`: Interage com a API Gemini para extração de dados. Inclui verificação de hash no banco de dados para evitar consultas duplicadas.
+  - `database.py`: Gerencia a conexão e operações no banco de dados, além de enviar mensagens para a fila RabbitMQ.
 - **.env**: Arquivo para configurar variáveis de ambiente (não deve ser versionado).
 - **.env.example**: Exemplo de configuração para o arquivo `.env`.
+
+## Funcionalidades Adicionais
+
+- **Verificação de Hash**: Antes de processar um texto com a API Gemini, o sistema verifica se o hash do texto já existe no banco de dados. Isso evita consultas duplicadas e melhora a eficiência do pipeline.
+- **Envio para RabbitMQ**: Após salvar os dados no banco de dados, eles são enviados para uma fila RabbitMQ para processamento posterior.
 
 ## Dependências
 
@@ -70,6 +85,7 @@ As dependências incluem:
 - `requests`: Para realizar requisições HTTP.
 - `PyPDF2`: Para processar e extrair texto de PDFs.
 - `psycopg2-binary`: Para conectar e interagir com o banco de dados PostgreSQL.
+- `pika`: Para interagir com o RabbitMQ.
 
 ## Contribuição
 

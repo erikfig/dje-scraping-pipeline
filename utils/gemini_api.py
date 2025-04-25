@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import time
 import hashlib
+from utils.database import check_hash_existence
 
 load_dotenv()
 
@@ -11,6 +12,13 @@ GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def send_to_gemini(full_text, data_list, max_retries=5):
+    hash_value = hashlib.md5(full_text.encode()).hexdigest()
+
+    # Verifica se o hash já existe no banco de dados
+    if check_hash_existence(hash_value):
+        print("Hash já processado. Ignorando consulta ao Gemini.")
+        return
+
     prompt = f"""
     Com base nesse texto a baixo preencha qual é o modelo a seguir responda somente com o JSON, nada mais, nem formatação nem nada, apenas o json abaixo, como uma api rest e para os valores não encontrados responda com null
 
@@ -45,7 +53,7 @@ def send_to_gemini(full_text, data_list, max_retries=5):
             data_json["conteudo_publicacao"] = full_text
             data_json["status"] = "nova"
             data_json["reu"] = "Instituto Nacional do Seguro Social - INSS"
-            data_json["hash"] = hashlib.md5(full_text.encode()).hexdigest()
+            data_json["hash"] = hash_value
             data_list.append(data_json)
             return
         elif gemini_response.status_code == 429:
